@@ -1,57 +1,48 @@
-import os
-os.environ["PYARROW_TZDATA"] = r"C:\Users\alexv\anaconda3\envs\traffic\Lib\site-packages\tzdata"
-os.environ["TZDATA"] = r"C:\Users\alexv\anaconda3\envs\traffic\Lib\site-packages\tzdata"
-
-from traffic.data import opensky 
 import pandas as pd
-import pickle
+import os
 
+file_name = "Oct24_20_00am_24pm_All_onground_clean.csv"
+DATA_DIR = "C:\\Users\\alexv\\OneDrive\\Escritorio\\UPC\\TFG\\DATA\\October"
 
-# #Download data
-# flights = opensky.history(
-#     start="2024-01-03 10:00:00", 
-#     stop="2024-01-03 21:59:59", 
-#     departure_airport="ESSA", 
-#     arrival_airport=None
-# )
+df = pd.read_csv(os.path.join(DATA_DIR, "Oct24_20_00am_24pm_All.csv"), delimiter=',')
 
-# #Save data
-# with open("flights_data.pkl", "wb") as f:
-#     pickle.dump(flights, f)
+df_new = df[['timestamp','callsign', 'latitude', 'longitude', 'groundspeed', 'track', 'onground', 'altitude', 'alert']]
 
-#Load data
-with open("flights_data.pkl", "rb") as f:
-    flights = pickle.load(f)
-
-file_name = "Jan24_01_03_10am_22pm_Dep.csv"
-DATA_DIR = "C:\\Users\\alexv\\OneDrive\\Escritorio\\UPC\\TFG\\DATA"
-
-filtered_flights = flights.query('(altitude < 100)')
-
-df_all = filtered_flights.data
-
-df = df_all[['callsign', 'latitude', 'longitude', 'groundspeed', 'track','onground', 'timestamp', 'altitude', 'alert']]
-
-#Verify data
-print(df.head())
-
-#Clean timestamp
-df['timestamp'] = pd.to_datetime(df['timestamp'])
-df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+#clean timestamp
+df_new['timestamp'] = pd.to_datetime(df_new['timestamp'])   
 
 #Clean callsign
-df = df[df['callsign'].notna()]
+df_new = df_new[df_new['callsign'].notna()]
+df_new = df_new[['timestamp','callsign', 'latitude', 'longitude', 'groundspeed', 'track', 'onground', 'altitude']]
 
-df = df[['timestamp','callsign', 'latitude', 'longitude', 'groundspeed', 'track','onground','altitude']]
+#Clean groundspeed
+df_new = df_new[df_new['groundspeed'].notna()]
+
+#Clean altitude
+df_new = df_new.query('onground | (altitude < 300)')
+
+#Clean track
+df_new = df_new[df_new['track'].notna()]
+
+#At least 40 seconds of data    
+df_new = df_new.groupby('callsign').filter(lambda group: len(group) >= 40)
+#Maximum 1h of data
+df_new = df_new.groupby('callsign').filter(
+    lambda x: (x['timestamp'].iloc[-1] - x['timestamp'].iloc[0]).total_seconds() <= 3600
+)
 
 #Asign a group to each callsign
-df['callsign_group'] = pd.factorize(df['callsign'])[0] + 1
+df_new['callsign_group'] = pd.factorize(df_new['callsign'])[0] + 1
 
-df_sorted = df.sort_values(by=['callsign_group', 'timestamp'])
+df_new = df_new.sort_values(by=['callsign_group', 'timestamp'])
+
+#Convert to string
+df_new['timestamp'] = df_new['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
 newdata = os.path.join(DATA_DIR, file_name)
 
-df_sorted.to_csv(newdata, index=False, sep=',')
+df_new.to_csv(newdata, index=False, sep=',')
 
 # Confirm data saved
-print(f"Datos guardados en '{newdata}'")
+print(f"Data saved in '{newdata}'")
+

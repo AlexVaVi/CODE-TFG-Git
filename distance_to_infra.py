@@ -4,11 +4,8 @@ import pandas as pd
 from conversion import latlon_to_xy
 
 def distance_to_infra(x_est, y_est, ref_lat, ref_lon):
-    file_path = r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\CODE TFG\arlanda_airport_nodes.csv'
-    df = pd.read_csv(file_path, delimiter=';')
-    
-    df['latitude'] = df['latitude'].str.replace(',', '.').astype(float)
-    df['longitude'] = df['longitude'].str.replace(',', '.').astype(float)
+    file_path = r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\arlanda_airport_nodes.csv'
+    df = pd.read_csv(file_path, delimiter=',')
     
     df_taxiway = df[df['type'] == 'taxiway'].copy()
     df_runway = df[df['type'] == 'runway'].copy()

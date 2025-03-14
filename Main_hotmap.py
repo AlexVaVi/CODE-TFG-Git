@@ -2,25 +2,21 @@ import folium
 import pandas as pd
 import branca.colormap as cm
 import numpy as np
+import webbrowser
 
-file_path = r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\CODE TFG\all_lat_lon_2024_10_01_buf.csv'
-df = pd.read_csv(file_path, delimiter=';')
+file_path = r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\February\Feb24_02_10am_22pm_All_onground_clean.csv'
+df = pd.read_csv(file_path, delimiter=',')
 
 # print("Flights:", df['callsign'].unique())
 
-callsign = df['callsign'].unique()[1]  
-df_flight = df[(df['callsign'] == callsign)]
+callsign_nr = 6
+callsign = df['callsign'].unique()[callsign_nr-1]  
+df_flight = df[(df['callsign_group'] == callsign_nr)]
 num_points = len(df_flight)
+print(num_points)
 
-df_flight['latitude'] = df['latitude'].str.replace(',', '.').astype(float)
-df_flight['longitude'] = df['longitude'].str.replace(',', '.').astype(float)
-
-df_flight['date'] = pd.to_datetime(df_flight['date'], format="%d/%m/%Y")
-df_flight['timestamp_clean'] = df_flight['timestamp'].str.replace("+00:00", "", regex=False)
-df_flight['datetime'] = pd.to_datetime(df_flight['date'].astype(str) + ' ' + df_flight['timestamp_clean'], format="%Y-%m-%d %H:%M:%S")
-
-first_time = df_flight['datetime'].iloc[0]
-last_time = df_flight['datetime'].iloc[-1]
+first_time = pd.to_datetime(df_flight['timestamp'].iloc[0])
+last_time = pd.to_datetime(df_flight['timestamp'].iloc[-1])
 elapsed_time = last_time - first_time
 elapsed_time_seconds = elapsed_time.total_seconds()
 hours = int(elapsed_time_seconds // 3600)
@@ -33,7 +29,9 @@ center_lon = df_flight['longitude'].mean()
 
 m = folium.Map(location=[center_lat, center_lon], zoom_start=16)
 
-num_bins = 10
+#DENSITY HEATMAP
+
+num_bins = 5
 lat_bins = np.linspace(df_flight['latitude'].min(), df_flight['latitude'].max(), num_bins)
 lon_bins = np.linspace(df_flight['longitude'].min(), df_flight['longitude'].max(), num_bins)
 
@@ -74,3 +72,5 @@ m.save("heatmap_density.html")
 print(f"Number of points for flight {callsign}: {num_points}")
 print(f"Ground time spent for {callsign}: {elapsed_time}")
 print(f"Map succesfully saved as 'heatmap_density.html'")
+webbrowser.open('heatmap_density.html')
+

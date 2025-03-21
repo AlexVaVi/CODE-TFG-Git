@@ -2,6 +2,7 @@ import requests
 import folium
 from shapely.geometry import LineString
 import numpy as np
+import webbrowser
 
 # Definir la consulta Overpass API para obtener los parkings de Arlanda (nodos y ways)
 overpass_url = "http://overpass-api.de/api/interpreter"
@@ -49,23 +50,24 @@ center_lat = np.mean([coord[0] for taxiway in parkings for coord in taxiway])
 center_lon = np.mean([coord[1] for taxiway in parkings for coord in taxiway])
 
 m = folium.Map(location=[center_lat, center_lon], zoom_start=13)
-folium.TileLayer('Esri.WorldImagery').add_to(m)
+folium.TileLayer('CartoDB Positron').add_to(m)
 
 # Agregar los parkings al mapa (sin invertir las coordenadas)
 for taxiway in parkings:
     # Opción 1: Usar directamente taxiway
-    folium.PolyLine(locations=taxiway, color='black', weight=2.5, opacity=1).add_to(m)
+    folium.PolyLine(locations=taxiway, color='#333333', weight=2.5, opacity=1).add_to(m)
     
 
 # HTML para la leyenda
 legend_html = '''
     <div style="position: fixed; 
-                top: 200px; left: 200px; width: 100px; height: 60px; 
+                top: 200px; left: 200px; width: 90px; height: 50px; 
                 background-color: white; z-index:9999; font-size:14px; 
                 padding: 5px; border-radius:5px; box-shadow:2px 2px 6px rgba(0,0,0,0.5);">
-        <span style="background-color: black; border-radius: 50%; width: 15px; height: 15px; display: inline-block; margin-right: 5px;"></span> Parking positions <br>
+        <span style="background-color: #333333; border-radius: 50%; width: 15px; height: 15px; display: inline-block; margin-right: 5px;"></span> Parking positions <br>
     </div>
 '''
 m.get_root().html.add_child(folium.Element(legend_html))
 m.save('arlanda_parkings_map.html')
 print("Map successfully saved as 'arlanda_parkings_map.html'")
+webbrowser.open('arlanda_parkings_map.html')

@@ -7,14 +7,16 @@ import classify_flight as cf
 import flights_path_type as fpt
 
 #Data
-file_path = r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\October\Oct24_20_00am_24pm_All_onground_clean.csv'
+file_path = r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\October\Oct24_20_00am_24pm_All_TestingData.csv'
 df_flight = pd.read_csv(file_path, delimiter=',')
 df_airport = pd.read_csv(r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\arlanda_airport_nodes.csv', delimiter=',')
 df_airport = df_airport[['type', 'latitude', 'longitude']]
 df_airport = df_airport[df_airport['type'] == 'runway']
 
+# print(df_flight.loc[df_flight['callsign'] == 'SEROB', 'callsign_group'].iloc[0])
+
 #Callsign number
-callsign_nr = 3
+callsign_nr = 300
 
 # print(df_flight['callsign_group'].iloc[-1])
 

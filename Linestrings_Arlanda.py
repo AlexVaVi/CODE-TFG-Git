@@ -19,8 +19,8 @@ for (way_type, way_id), group in df.groupby(["type", "way_id"]):
         line = LineString(points)
         linestrings[(way_type, way_id)] = line
     
-print(linestrings)
-print(len(linestrings))
+# print(linestrings)
+# print(len(linestrings))
 
 # fig, ax = plt.subplots(figsize=(10, 10))
 

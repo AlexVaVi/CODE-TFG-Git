@@ -6,8 +6,8 @@ import webbrowser
 
 def flight_path(flight_df, callsign_nr, runway_nodes_df):
 
-    callsign = flight_df['callsign'].unique()[callsign_nr-1]  
     df_flight = flight_df[(flight_df['callsign_group'] == callsign_nr)]
+    callsign = df_flight['callsign'].unique()[0]  
     num_points = len(df_flight)
 
     first_time = pd.to_datetime(df_flight['timestamp'].iloc[0])
@@ -28,30 +28,33 @@ def flight_path(flight_df, callsign_nr, runway_nodes_df):
 
     # Crea un mapa centrado en la ubicación del vuelo
     m = folium.Map(location=[center_lat, center_lon], zoom_start=16)
+    folium.TileLayer('CartoDB Positron').add_to(m)
 
     # Dibuja las líneas de la trayectoria en azul
     for i in range(1, len(df_flight)):
         folium.PolyLine(
             locations=[(df_flight.iloc[i-1]['latitude'], df_flight.iloc[i-1]['longitude']),
                     (df_flight.iloc[i]['latitude'], df_flight.iloc[i]['longitude'])],
-            color='blue',  # Traza toda la ruta en azul
+            color='#4b6eaf',  # Traza toda la ruta en azul
             weight=4,
             opacity=0.8
         ).add_to(m)
-
+        
     for i in range(len(df_flight)):
-        lat = df_flight.iloc[i]['latitude']
-        lon = df_flight.iloc[i]['longitude']
-        folium.Marker(
-            location=[lat, lon],
-            icon=folium.DivIcon(html=f"""<div style="font-size: 12pt; color: red;">{i}</div>"""),
-            tooltip=f"Point {i}"
+        folium.CircleMarker(
+        location=[df_flight.iloc[i]['latitude'], df_flight.iloc[i]['longitude']],
+        radius=1,           # Tamaño del círculo
+        color='#333333',      # Contorno negro
+        fill=True,
+        fill_color='#333333', # Relleno negro
+        fill_opacity=1.0,
+        # tooltip=f"Filtered point {i}"  # Puedes descomentar si quieres mostrar el índice al pasar el ratón
     ).add_to(m)
-    
+
     # Añadir un texto al mapa con el tiempo de tierra
     html = f"""
     <div style="position: fixed;
-                top: 10px; left: 10px; width: 250px; height: 50px;
+                top: 10px; right: 20px; width: 250px; height: 50px;
                 background-color: white; z-index:9999; font-size:14px;
                 padding: 5px; border-radius:5px; box-shadow:2px 2px 6px rgba(0,0,0,0.5);">
         Ground time for {callsign}: {formatted_time}

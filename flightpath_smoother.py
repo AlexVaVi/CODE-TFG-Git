@@ -117,18 +117,20 @@ def flight_path_smoother(corrected_lat, corrected_lon, unique_segments, ref_lat,
     center_lat = np.mean(final_lat) if merged_path_coords else ref_lat
     center_lon = np.mean(final_lon) if merged_path_coords else ref_lon
     m = folium.Map(location=[center_lat, center_lon], zoom_start=16)
+    folium.TileLayer('CartoDB Positron').add_to(m)
+
     
     if merged_path_coords:
-        folium.PolyLine(locations=merged_path_coords, color='red', weight=4, opacity=0.8,
+        folium.PolyLine(locations=merged_path_coords, color='#4b6eaf', weight=4, opacity=0.8,
                         tooltip="Forced Taxiway Path").add_to(m)
 
     for i in range(len(corrected_lat)):
         folium.CircleMarker(
         location=[corrected_lat[i], corrected_lon[i]],
         radius=1,           # Tamaño del círculo
-        color='black',      # Contorno negro
+        color='#333333',      # Contorno negro
         fill=True,
-        fill_color='black', # Relleno negro
+        fill_color='#333333', # Relleno negro
         fill_opacity=1.0,
         # tooltip=f"Filtered point {i}"  # Puedes descomentar si quieres mostrar el índice al pasar el ratón
     ).add_to(m)

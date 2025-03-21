@@ -7,12 +7,12 @@ from traffic.data import airports, opensky
 
 #Download data
 flights = opensky.history(
-    start="2024-10-20 00:00:00", 
-    stop="2024-10-20 23:59:59",  
+    start="2024-10-27 00:00:00", 
+    stop="2024-10-27 23:59:59",  
     bounds=airports["ESSA"],
 )
 
-file_name = "Oct24_20_00am_24pm_All.csv"
+file_name = "Oct24_27_00pm_24pm_All.csv"
 DATA_DIR = "C:\\Users\\alexv\\OneDrive\\Escritorio\\UPC\\TFG\\DATA\\October"
 
 df_all = flights.data
@@ -28,6 +28,8 @@ df.to_csv(newdata, index=False, sep=',')
 
 # Confirm data saved
 print(f"Data saved as '{newdata}'")
+
+print(df_all.head())
 
 # #Filtering data
 

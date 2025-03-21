@@ -38,7 +38,7 @@ df_corrected = pd.DataFrame({
 
 callsign_nr = 1
 
-# path = fp.flight_path(df_flight, callsign_nr, df_airport)
+path = fp.flight_path(df_flight, callsign_nr, df_airport)
 # print(df_corrected)
 # path_corrected = fp.flight_path(df_corrected, callsign_nr, df_airport)
 

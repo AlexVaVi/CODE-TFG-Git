@@ -11,17 +11,25 @@ import segments as sg
 # ============================
 # 1. Reading of the flight path
 # ============================
-file_path = r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\October\NSZ4363_KalmanTest.csv'
+file_path = r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\October\Kalman Test\NSZ4363_KalmanTest.csv'
 df_flight = pd.read_csv(file_path, delimiter=',')
 df_airport = pd.read_csv(r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\arlanda_airport_nodes.csv', delimiter=',')
 df_airport = df_airport[df_airport['type'] == 'runway']
-df_flight = df_flight[df_flight['onground']]
+df_flight1 = df_flight[df_flight['onground']]
 
 original_lat = df_flight['latitude'].values
 original_lon = df_flight['longitude'].values
 
 ref_lat = original_lat[0]
 ref_lon = original_lon[0]
+
+callsign_nr = 1
+
+df_flight = df_flight[df_flight['callsign_group'] == callsign_nr].copy()
+
+ref_lat = df_flight['latitude'].values[0]
+ref_lon = df_flight['longitude'].values[0]
+
 
 corrected_latitudes, corrected_longitudes, closest_segments = kalman_filter(df_flight, ref_lat, ref_lon)
 df_corrected = pd.DataFrame({
@@ -36,11 +44,9 @@ df_corrected = pd.DataFrame({
 # 2. Plotting measured and corrected path
 # ============================
 
-callsign_nr = 1
-
-path = fp.flight_path(df_flight, callsign_nr, df_airport)
+path = fp.flight_path(df_flight1, callsign_nr, df_airport)
 # print(df_corrected)
 # path_corrected = fp.flight_path(df_corrected, callsign_nr, df_airport)
 
-smoothpath = fs.flight_path_smoother(corrected_latitudes, corrected_longitudes, closest_segments, ref_lat, ref_lon)
+# smoothpath = fs.flight_path_smoother(corrected_latitudes, corrected_longitudes, closest_segments, ref_lat, ref_lon)
 # segmentpath = sg.plot_segments(closest_segments, ref_lat, ref_lon)

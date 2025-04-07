@@ -4,7 +4,7 @@ import numpy as np
 import classify_flight as cf
 import webbrowser 
 
-def flight_path(flight_df, callsign_nr, runway_nodes_df):
+def flight_path(flight_df, callsign_nr, df_apron_nodes):
 
     df_flight = flight_df[(flight_df['callsign_group'] == callsign_nr)]
     callsign = df_flight['callsign'].unique()[0]  
@@ -20,7 +20,7 @@ def flight_path(flight_df, callsign_nr, runway_nodes_df):
     formatted_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
     #type flight
-    type = cf.classify_flight(flight_df, callsign_nr, runway_nodes_df)
+    type = cf.classify_flight(flight_df, callsign_nr, df_apron_nodes)
     
     # Centra el mapa en el punto medio de la trayectoria
     center_lat = df_flight['latitude'].mean()
@@ -40,16 +40,16 @@ def flight_path(flight_df, callsign_nr, runway_nodes_df):
             opacity=0.8
         ).add_to(m)
         
-    for i in range(len(df_flight)):
-        folium.CircleMarker(
-        location=[df_flight.iloc[i]['latitude'], df_flight.iloc[i]['longitude']],
-        radius=1,           # Tamaño del círculo
-        color='#333333',      # Contorno negro
-        fill=True,
-        fill_color='#333333', # Relleno negro
-        fill_opacity=1.0,
-        # tooltip=f"Filtered point {i}"  # Puedes descomentar si quieres mostrar el índice al pasar el ratón
-    ).add_to(m)
+    # for i in range(len(df_flight)):
+    #     folium.CircleMarker(
+    #     location=[df_flight.iloc[i]['latitude'], df_flight.iloc[i]['longitude']],
+    #     radius=1,           # Tamaño del círculo
+    #     color='#333333',      # Contorno negro
+    #     fill=True,
+    #     fill_color='#333333', # Relleno negro
+    #     fill_opacity=1.0,
+    #     # tooltip=f"Filtered point {i}"  # Puedes descomentar si quieres mostrar el índice al pasar el ratón
+    # ).add_to(m)
 
     # Añadir un texto al mapa con el tiempo de tierra
     html = f"""

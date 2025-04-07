@@ -3,6 +3,7 @@ import folium
 from shapely.geometry import LineString
 import numpy as np
 import webbrowser
+import csv
 
 # Definir la consulta Overpass API para obtener los parkings de Arlanda (nodos y ways)
 overpass_url = "http://overpass-api.de/api/interpreter"
@@ -67,7 +68,36 @@ legend_html = '''
         <span style="background-color: #333333; border-radius: 50%; width: 15px; height: 15px; display: inline-block; margin-right: 5px;"></span> Parking positions <br>
     </div>
 '''
+for idx, parking in enumerate(parkings):
+    folium.PolyLine(locations=parking, color='#333333', weight=2.5, opacity=1).add_to(m)
+
+    # Compute the midpoint of the parking line
+    mid_idx = len(parking) // 2
+    mid_lat, mid_lon = parking[mid_idx]
+
+    # Add the parking number as a label using DivIcon
+    folium.Marker(
+        location=[mid_lat, mid_lon],
+        icon=folium.DivIcon(
+            html=f'<div style="font-size: 12px; font-weight: bold; color: black;">{idx}</div>'
+        )
+    ).add_to(m)
+
 m.get_root().html.add_child(folium.Element(legend_html))
 m.save('arlanda_parkings_map.html')
 print("Map successfully saved as 'arlanda_parkings_map.html'")
 webbrowser.open('arlanda_parkings_map.html')
+
+with open('arlanda_parking_nodes_by_way.csv', mode='w', newline='', encoding='utf-8') as csvfile:
+    writer = csv.writer(csvfile)
+    writer.writerow(['Way ID', 'Node ID', 'Latitude', 'Longitude'])  # Cabecera
+
+    for element in data['elements']:
+        if element['type'] == 'way' and 'nodes' in element:
+            way_id = element['id']
+            for node_id in element['nodes']:
+                if node_id in nodes:
+                    lat, lon = nodes[node_id]
+                    writer.writerow([way_id, node_id, lat, lon])
+
+print("CSV file 'arlanda_parking_nodes.csv' successfully saved.")

@@ -5,136 +5,163 @@ import webbrowser
 from shapely.geometry import Point, LineString
 from shapely.ops import linemerge
 from conversion import latlon_to_xy, xy_to_latlon
-
-def sub_line_geometry(seg, p_start, p_end, n=20):
-    if p_start > p_end:
-        p_start, p_end = p_end, p_start
-    ps = np.linspace(p_start, p_end, n)
-    coords = [seg.interpolate(p) for p in ps]
-    return LineString([(pt.x, pt.y) for pt in coords])
+from ApronAnalysis import find_apron
+import pandas as pd
+from geopy.distance import geodesic
 
 def flight_path_smoother(corrected_lat, corrected_lon, unique_segments, ref_lat, ref_lon):
 
-    x_m, y_m = latlon_to_xy(corrected_lat, corrected_lon, ref_lat, ref_lon)
-    filtered_pts = [Point(x_m[i], y_m[i]) for i in range(len(x_m))]
+    df_apron = pd.read_csv(r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\arlanda_airport_nodes.csv')
+    df_apron = df_apron[df_apron['type'] == 'apron']
 
-    G = nx.Graph()
-    
-    # Agrega cada punto filtrado como nodo
-    for pt in filtered_pts:
-        node = (pt.x, pt.y)
-        if node not in G:
-            G.add_node(node, geometry=pt)
+    # Funció interna: separa segments entre aprons i infra
+    def split_apron_segments(latitudes, longitudes):
+        segments = []
+        current_segment = {"lat": [], "lon": []}
+        inside_apron = False
+        for i in range(len(latitudes)):
+            lat, lon = latitudes[i], longitudes[i]
+            in_apron = find_apron(lat, lon, df_apron) is not None
+            if in_apron:
+                if not inside_apron and current_segment["lat"]:
+                    segments.append({"type": "infra", "lat": current_segment["lat"], "lon": current_segment["lon"]})
+                    current_segment = {"lat": [], "lon": []}
+                inside_apron = True
+                current_segment["lat"].append(lat)
+                current_segment["lon"].append(lon)
+            else:
+                if inside_apron:
+                    current_segment["lat"].append(lat)
+                    current_segment["lon"].append(lon)
+                    segments.append({"type": "apron", "lat": current_segment["lat"], "lon": current_segment["lon"]})
+                    current_segment = {"lat": [], "lon": []}
+                    inside_apron = False
+                else:
+                    current_segment["lat"].append(lat)
+                    current_segment["lon"].append(lon)
+        if current_segment["lat"]:
+            segment_type = "apron" if inside_apron else "infra"
+            segments.append({"type": segment_type, "lat": current_segment["lat"], "lon": current_segment["lon"]})
+        return segments
 
-    # Agrega los extremos de cada segmento
-    for seg in unique_segments:
-        start = Point(seg.coords[0])
-        end   = Point(seg.coords[-1])
-        for p in [start, end]:
-            node = (p.x, p.y)
-            if node not in G:
-                G.add_node(node, geometry=p)
-
-    # Intersecciones
-    for i in range(len(unique_segments)):
-        for j in range(i+1, len(unique_segments)):
-            seg1 = unique_segments[i]
-            seg2 = unique_segments[j]
-            inter = seg1.intersection(seg2)
-            if not inter.is_empty:
-                if inter.geom_type == 'Point':
-                    node = (inter.x, inter.y)
-                    if node not in G:
-                        G.add_node(node, geometry=inter)
-                elif inter.geom_type == 'MultiPoint':
-                    for p in inter.geoms:
-                        node = (p.x, p.y)
-                        if node not in G:
-                            G.add_node(node, geometry=p)
-
-    # Construye aristas con geometría curva
-    tol = 1e-6
-    for seg in unique_segments:
-        nodes_on_seg = []
-        for node, data in G.nodes(data=True):
-            pt = data['geometry']
-            p  = seg.project(pt)
-            proj_pt = seg.interpolate(p)
-            if pt.distance(proj_pt) < tol:
-                nodes_on_seg.append((node, p))
-        # Ordena los nodos por parámetro
-        nodes_on_seg.sort(key=lambda tup: tup[1])
-        
-        # Crea aristas consecutivas con la geometría real del sub-tramo
-        for k in range(len(nodes_on_seg)-1):
-            node1, p1 = nodes_on_seg[k]
-            node2, p2 = nodes_on_seg[k+1]
-            # Geometría real del sub-tramo [p1, p2]
-            line_geom = sub_line_geometry(seg, p1, p2, n=20)
-            edge_length = line_geom.length
-            G.add_edge(node1, node2, weight=edge_length, geometry=line_geom)
-
-    # Función para encontrar el nodo más cercano
-    def find_nearest_node(pt, graph):
-        min_dist = float('inf')
-        nearest = None
-        for node, data in graph.nodes(data=True):
-            d = pt.distance(data['geometry'])
-            if d < min_dist:
-                min_dist = d
-                nearest = node
-        return nearest
-
-    start_node = find_nearest_node(filtered_pts[0], G)
-    end_node   = find_nearest_node(filtered_pts[-1], G)
-
-    try:
-        path_nodes = nx.shortest_path(G, source=start_node, target=end_node, weight='weight')
-    except Exception as e:
-        print("Error computing shortest path:", e)
-        return []
-
-    path_lines = []
-    for i in range(len(path_nodes)-1):
-        u = path_nodes[i]
-        v = path_nodes[i+1]
-        edge_data = G.get_edge_data(u, v)
-        if edge_data and 'geometry' in edge_data:
-            path_lines.append(edge_data['geometry'])
-
-    if path_lines:
-        merged_path = linemerge(path_lines)
-    else:
-        merged_path = None
-
-    if merged_path is None:
-        merged_path_coords = []
-    else:
-        xs, ys = np.array(merged_path.xy[0]), np.array(merged_path.xy[1])
-        final_lat, final_lon = xy_to_latlon(xs, ys, ref_lat, ref_lon)
-        merged_path_coords = list(zip(final_lat, final_lon))
-
-    center_lat = np.mean(final_lat) if merged_path_coords else ref_lat
-    center_lon = np.mean(final_lon) if merged_path_coords else ref_lon
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=16)
+    m = folium.Map(location=[np.mean(corrected_lat), np.mean(corrected_lon)], zoom_start=16)
     folium.TileLayer('CartoDB Positron').add_to(m)
 
+    segments = split_apron_segments(corrected_lat, corrected_lon)
+    prev_end = None
     
-    if merged_path_coords:
-        folium.PolyLine(locations=merged_path_coords, color='#4b6eaf', weight=4, opacity=0.8,
-                        tooltip="Forced Taxiway Path").add_to(m)
+    for seg in segments:
+        if seg["type"] == "apron":
+            folium.PolyLine(list(zip(seg["lat"], seg["lon"])), color="#4b6eaf", weight=4, opacity=0.8,
+                            tooltip="Apron segment").add_to(m)
+        else:
+            # Infraestructura: fer servir NetworkX
+            x_m, y_m = latlon_to_xy(seg["lat"], seg["lon"], ref_lat, ref_lon)
+            filtered_pts = [Point(x_m[i], y_m[i]) for i in range(len(x_m))]
 
-    for i in range(len(corrected_lat)):
-        folium.CircleMarker(
-        location=[corrected_lat[i], corrected_lon[i]],
-        radius=1,           # Tamaño del círculo
-        color='#333333',      # Contorno negro
-        fill=True,
-        fill_color='#333333', # Relleno negro
-        fill_opacity=1.0,
-        # tooltip=f"Filtered point {i}"  # Puedes descomentar si quieres mostrar el índice al pasar el ratón
+            G = nx.Graph()
+            for pt in filtered_pts:
+                G.add_node((pt.x, pt.y), geometry=pt)
+            for segm in unique_segments:
+                for p in [segm.coords[0], segm.coords[-1]]:
+                    pt = Point(p)
+                    G.add_node((pt.x, pt.y), geometry=pt)
+
+            # Interseccions
+            for i in range(len(unique_segments)):
+                for j in range(i+1, len(unique_segments)):
+                    inter = unique_segments[i].intersection(unique_segments[j])
+                    if not inter.is_empty:
+                        if inter.geom_type == 'Point':
+                            G.add_node((inter.x, inter.y), geometry=inter)
+                        elif inter.geom_type == 'MultiPoint':
+                            for p in inter.geoms:
+                                G.add_node((p.x, p.y), geometry=p)
+
+            tol = 1e-6
+            for segment in unique_segments:
+                nodes_on_seg = []
+                for node, data in G.nodes(data=True):
+                    pt = data['geometry']
+                    p = segment.project(pt)
+                    proj_pt = segment.interpolate(p)
+                    if pt.distance(proj_pt) < tol:
+                        nodes_on_seg.append((node, p))
+                nodes_on_seg.sort(key=lambda tup: tup[1])
+                for k in range(len(nodes_on_seg)-1):
+                    n1, p1 = nodes_on_seg[k]
+                    n2, p2 = nodes_on_seg[k+1]
+                    p1 = float(p1)
+                    p2 = float(p2)
+                    coords = [segment.interpolate(t) for t in np.linspace(p1, p2, 20)]
+                    line_geom = LineString([(pt.x, pt.y) for pt in coords])
+                    G.add_edge(n1, n2, weight=line_geom.length, geometry=line_geom)
+
+            def nearest_node(pt):
+                return min(G.nodes, key=lambda node: pt.distance(Point(node)))
+
+            start_node = nearest_node(filtered_pts[0])
+            end_node = nearest_node(filtered_pts[-1])
+
+            try:
+                path_nodes = nx.shortest_path(G, source=start_node, target=end_node, weight="weight")
+                path_lines = []
+                for i in range(len(path_nodes)-1):
+                    u, v = path_nodes[i], path_nodes[i+1]
+                    data = G.get_edge_data(u, v)
+                    if data and "geometry" in data:
+                        path_lines.append(data["geometry"])
+                if path_lines:
+                    merged = linemerge(path_lines)
+                    xs, ys = merged.xy
+                    xs = np.array(xs)
+                    ys = np.array(ys)
+                    lat_f, lon_f = xy_to_latlon(xs, ys, ref_lat, ref_lon)
+                    folium.PolyLine(list(zip(lat_f, lon_f)), color="#4b6eaf", weight=4, opacity=0.8,
+                                    tooltip="Infrastructure Path").add_to(m)
+            except Exception as e:
+                print(f"Path error: {e}")
+
+        points = list(zip(seg["lat"], seg["lon"]))
+
+        # --- Connectar visualment amb el tram anterior si cal ---
+        if prev_end:
+            first_pt = (seg["lat"][0], seg["lon"][0])
+            dist = geodesic(prev_end, first_pt).meters
+            if dist < 20:  # només si la separació és raonable
+                folium.PolyLine([prev_end, first_pt], color="#4b6eaf", weight=4, opacity=0.8).add_to(m)
+
+        # Actualitza l’últim punt
+        prev_end = (seg["lat"][-1], seg["lon"][-1])
+    
+    # Afegeix punts corregits com a marcadors
+    # for i in range(len(corrected_lat)):
+    #     folium.CircleMarker(
+    #         location=[corrected_lat[i], corrected_lon[i]],
+    #         radius=1,
+    #         color='#333333',
+    #         fill=True,
+    #         fill_color='#333333',
+    #         fill_opacity=1.0
+    #     ).add_to(m)
+    
+    # Timestamp sobre el primer punt
+    folium.Marker(
+        location=[corrected_lat[0], corrected_lon[0]],
+        icon=folium.DivIcon(html=f"""
+            <div style='font-size: 15px; color: black; font-weight: bold;'>
+                🟢 {'04:10:38z'}
+            </div>""")
     ).add_to(m)
 
-    
+    # Timestamp sobre l'últim punt
+    folium.Marker(
+        location=[corrected_lat[-1], corrected_lon[-1]],
+        icon=folium.DivIcon(html=f"""
+            <div style='font-size: 15px; color: black; font-weight: bold;'>
+                🔴 {'04:23:13z'}
+            </div>""")
+    ).add_to(m)
+        
     m.save("flight_path_smoother.html")
     webbrowser.open("flight_path_smoother.html")

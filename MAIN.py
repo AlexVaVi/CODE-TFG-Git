@@ -5,6 +5,7 @@ import webbrowser
 import flight_path as fp
 import classify_flight as cf
 import flights_path_type as fpt
+from shapely.geometry import LineString, Point
 
 #Data
 file_path = r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\October\Oct24_20_00am_24pm_All_TestingData.csv'
@@ -16,7 +17,7 @@ df_airport = df_airport[df_airport['type'] == 'runway']
 # print(df_flight.loc[df_flight['callsign'] == 'SEROB', 'callsign_group'].iloc[0])
 
 #Callsign number
-callsign_nr = 300
+callsign_nr = 1
 
 # print(df_flight['callsign_group'].iloc[-1])
 

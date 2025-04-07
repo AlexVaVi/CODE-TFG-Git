@@ -52,10 +52,15 @@ center_lon = np.mean([coord[1] for taxiway in runways for coord in taxiway])
 m = folium.Map(location=[center_lat, center_lon], zoom_start=13)
 folium.TileLayer('CartoDB Positron').add_to(m)
 
-# Agregar los runways al mapa (sin invertir las coordenadas)
-for taxiway in runways:
-    # Opción 1: Usar directamente taxiway
-    folium.PolyLine(locations=taxiway, color='#333333', weight=2.5, opacity=1).add_to(m)
+for idx, runway in enumerate(runways, start=1):
+    folium.PolyLine(locations=runway, color='#333333', weight=2.5, opacity=1).add_to(m)
+    # Afegir marcador al centre del runway
+    lat_center = np.mean([pt[0] for pt in runway])
+    lon_center = np.mean([pt[1] for pt in runway])
+    folium.map.Marker(
+        [lat_center, lon_center],
+        icon=folium.DivIcon(html=f'<div style="font-size:12px; color:#333;"><b>RWY {idx}</b></div>')
+    ).add_to(m)
     
 
 # Definir la consulta Overpass API para obtener los taxiways de Arlanda (nodos y ways)
@@ -145,10 +150,15 @@ if aprons:
 else:
     print("No se encontraron aprons.")
 
-# Agregar los aprons al mapa (sin invertir las coordenadas)
-for taxiway in aprons:
-    # Opción 1: Usar directamente taxiway
-    folium.PolyLine(locations=taxiway, color='#bbbbbb', weight=2.5, opacity=1).add_to(m)
+for idx, apron in enumerate(aprons, start=1):
+    folium.PolyLine(locations=apron, color='#bbbbbb', weight=2.5, opacity=1).add_to(m)
+    # Afegir marcador al centre del apron
+    lat_center = np.mean([pt[0] for pt in apron])
+    lon_center = np.mean([pt[1] for pt in apron])
+    folium.map.Marker(
+        [lat_center, lon_center],
+        icon=folium.DivIcon(html=f'<div style="font-size:12px; color:#444;"><b>AP {idx}</b></div>')
+    ).add_to(m)
     
 
 # HTML para la leyenda

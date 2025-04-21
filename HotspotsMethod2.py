@@ -4,8 +4,10 @@ import folium
 from shapely.geometry import Point
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.cm as cm
+from shapely.geometry import Point
+from geopy.distance import geodesic
 
-def hotspots2(df, start_time=None, end_time=None, grid_size=0.00005, min_points=5):
+def hotspots2(df, runway_lines, start_time=None, end_time=None, grid_size=0.00005, min_points=5, exclusion_distance=10):
     """
     Calculates hotspot levels in a grid-based method.
     """
@@ -28,7 +30,17 @@ def hotspots2(df, start_time=None, end_time=None, grid_size=0.00005, min_points=
         total_points = len(group)
         unique_callsigns = group['callsign'].nunique()
         callsign_counts = group.groupby('callsign').size()
-        max_points_per_callsign = callsign_counts.max()
+        center_lat = group['lat_bin'].iloc[0] + grid_size / 2
+        center_lon = group['lon_bin'].iloc[0] + grid_size / 2
+        center_point = Point(center_lon, center_lat)
+        
+        too_close = False
+        for rwy in runway_lines:
+            if center_point.distance(rwy) * 111000 < exclusion_distance:
+                too_close = True
+                break
+        if too_close:
+            continue  # Skip this cell
 
         if total_points >= min_points:
             # Assign level based on thresholds
@@ -65,6 +77,7 @@ def visualize_hotspots2(hotspots_df, map_filename='grid_hotspots_map.html'):
         return
 
     fmap = folium.Map(location=[hotspots_df['lat'].mean(), hotspots_df['lon'].mean()], zoom_start=15)
+    folium.TileLayer('CartoDB Positron').add_to(fmap)
     colormap = cm.get_cmap('Reds', 6)  # 0 to 5 levels
 
     for _, row in hotspots_df.iterrows():
@@ -73,7 +86,7 @@ def visualize_hotspots2(hotspots_df, map_filename='grid_hotspots_map.html'):
 
         folium.CircleMarker(
             location=(row['lat'], row['lon']),
-            radius=6 + row['level'] * 2,
+            radius=6,
             color=color_hex,
             fill=True,
             fill_opacity=0.7,

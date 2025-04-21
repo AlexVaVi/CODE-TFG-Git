@@ -1,7 +1,7 @@
 from shapely.geometry import Point
 from classify_flight import classify_flight
 
-def find_parking(trajectory_df, callsign_nr, parking_lines, df_apron_nodes, threshold_parking=10):
+def find_parking(trajectory_df, callsign_nr, parking_lines, df_apron_nodes, threshold_parking=5):
     # Step 1: Classify the flight as Arrival or Departure
     flight_type = classify_flight(trajectory_df, callsign_nr, df_apron_nodes)
 

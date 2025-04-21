@@ -16,9 +16,13 @@ from flightpath_smoother import flight_path_smoother
 import folium 
 from ApronAnalysis import find_apron
 import matplotlib.pyplot as plt
+from GateOccupancy import compute_gate_blocked_intervals, plot_gate_occupancy_chart, plot_gate_occupancy_by_operations, remove_overlaps_by_gate, compute_hourly_gate_occupancy_avg_from_folder, plot_avg_gate_occupancy, get_unique_gates_from_folder
+from RunwayGate import add_runways_to_occupancy
+import glob
+import os
 
 #Data
-file_path = r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\October\Oct24_25_00am_24pm_All_ProcessedData.csv'
+file_path = r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\October\Oct24_27_00am_24pm_All_ProcessedData.csv'
 df_flight = pd.read_csv(file_path, delimiter=',')
 df_airport = pd.read_csv(r'C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\arlanda_airport_nodes.csv', delimiter=',')
 df_airport = df_airport[df_airport['type'] == 'runway']
@@ -65,8 +69,8 @@ for parking_id in df_parkings['Way ID'].unique():
 
 #HOTSPOTS
 
-start = datetime(2024, 10, 20, 15, 0, 0)  
-end   = datetime(2024, 10, 20, 16, 0, 0)  
+start = datetime(2024, 10, 20, 17, 0, 0)  
+end   = datetime(2024, 10, 20, 18, 0, 0)  
 
 # df_flight['timestamp'] = pd.to_datetime(df_flight['timestamp'])
 # df = df_flight.sort_values(by='timestamp')
@@ -81,7 +85,7 @@ end   = datetime(2024, 10, 20, 16, 0, 0)
 # webbrowser.open('hotspots1.html')
 
 #Method 2
-# hotspots_df = hotspots2(df_flight, start_time=start, end_time=end)
+# hotspots_df = hotspots2(df_flight, runway_lines, start_time=start, end_time=end)
 # hotspots_level0 = hotspots_df[hotspots_df['level'] == 0]
 # hotspots_level1 = hotspots_df[hotspots_df['level'] == 1]
 # hotspots_level2 = hotspots_df[hotspots_df['level'] == 2]
@@ -201,50 +205,111 @@ end   = datetime(2024, 10, 20, 16, 0, 0)
 
 
 
-#RUNWAY OCCUPANCY TIME
+# RUNWAY & TAXI TIME
 
-results = []
+# results = []
 
-for callsign_nr in df_flight['callsign_group'].unique():
-    try:
-        runway_time, taxi_time, used_runway, t_start, t_end = ground_time(df_flight, df_apron, runway_lines, callsign_nr)
+# for callsign_nr in df_flight['callsign_group'].unique():
+#     try:
+#         runway_time, taxi_time, used_runway, t_start, t_end = ground_time(df_flight, df_apron, runway_lines, callsign_nr)
 
-        if used_runway is None or t_start is None or t_end is None:
-            continue  
+#         if used_runway is None or t_start is None or t_end is None:
+#             continue  
 
-        results.append({
-            "callsign": callsign_nr,
-            "used_runway": used_runway,
-            "runway_time": runway_time,
-            "t_start": t_start,
-            "t_end": t_end
-        })
+#         results.append({
+#             "callsign": callsign_nr,
+#             "used_runway": used_runway,
+#             "runway_time": runway_time,
+#             "taxi_time": taxi_time,
+#             "t_start": t_start,
+#             "t_end": t_end,
+#         })
 
-    except Exception as e:
-        print(f"Error with callsign {callsign_nr}: {e}")
-        continue
+#     except Exception as e:
+#         print(f"Error with callsign {callsign_nr}: {e}")
+#         continue
     
-df_usage = pd.DataFrame(results)
+# df_usage = pd.DataFrame(results)
 
-active_ops = []
-
-for i, row in df_usage.iterrows():
-    t_start_i = row['t_start']
-    t_end_i = row['t_end']
-
-    # Comptem quants altres vols se solapen amb aquest interval
-    count = df_usage[
-        (df_usage['t_end'] >= t_start_i) & (df_usage['t_start'] <= t_end_i)
-    ].shape[0]  # Número de files que se solapen
-
-    active_ops.append(count)
-
-df_usage['active_operations'] = active_ops
-
-df_usage.to_csv("runway_usage_stats.csv", index=False)
-print("✅ Dades guardades a 'runway_usage_stats.csv'")
+# df_usage.to_csv("groundtime_stats21.csv", index=False)
+# print("✅ Dades guardades a 'groundtime_stats.csv'")
   
-  
+# # Carreguem el dataframe existent (substitueix-ho si ja el tens en memòria)
+# df_usage = pd.read_csv("groundtime_stats21.csv", parse_dates=["t_start", "t_end"])
+
+# # Asegurarse de que las columnas son datetime
+# df_usage['t_start'] = pd.to_datetime(df_usage['t_start'])
+# df_flight['timestamp'] = pd.to_datetime(df_flight['timestamp']) 
+
+# df_flight['hour'] = df_flight['timestamp'].dt.floor('h')
+# df_usage['hour'] = df_usage['t_start'].dt.floor('h')
+
+# # 1. Número total de operaciones por hora (sin diferenciar pista)
+# ops_per_hour = df_flight.groupby('hour').agg(
+#     total_operations=('callsign_group', 'nunique')  # número de operaciones reales
+# ).reset_index()
+
+# # 2. Mediana de runway_time por pista y hora
+# median_runway_time = df_usage.groupby(['used_runway', 'hour']).agg(
+#     median_runway_time=('runway_time', 'median')
+# ).reset_index()
+
+# # 3. Unimos ambos resultados por 'hour'
+# result = pd.merge(median_runway_time, ops_per_hour, on='hour', how='left')
+
+# # 4. Guardamos en CSV
+# result.to_csv('groundtime_stats21.csv', index=False)
+# print("✅ Fitxer generat correctament.")
+
+
+
+
+
+## GATE OCCUPANCY ##
+####################
+
+# df_occupancy = compute_gate_blocked_intervals(df_flight, parking_lines, df_apron)
+
+# print("Total d'operacions analitzades:", len(df_occupancy))
+# df_occupancy = df_occupancy[df_occupancy['duration_minutes'] >= 1]
+# df_occupancy = remove_overlaps_by_gate(df_occupancy)
+
+# folder_path = r"C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\October\GateOccupancy"
+# avg_hourly = compute_hourly_gate_occupancy_avg_from_folder(folder_path)
+# plot_avg_gate_occupancy(avg_hourly, max_capacity=28)
+
+
+
+#USUAL CAPACITY
+
+# gates, total = get_unique_gates_from_folder(folder_path)
+
+# print(f"🔢 Gates identificats durant la setmana: {total}")
+# print(f"Gates: {gates}")
+
+
+
+#PLOT
+
+# GatePlot = plot_gate_occupancy_chart(df_occupancy, top_n=10)
+# OpGatePlot = plot_gate_occupancy_by_operations(df_occupancy, top_n=10)
+
+
+
+#RUNWAY USED PER GATE
+
+folder = r"C:\Users\alexv\OneDrive\Escritorio\UPC\TFG\DATA\October\GateOccupancy"
+df_occupancy = pd.read_csv(os.path.join(folder, "GateOccupancy27.csv"), delimiter=',')
+
+df_occupancy['start_time'] = pd.to_datetime(df_occupancy['start_time'])
+df_occupancy['end_time'] = pd.to_datetime(df_occupancy['end_time'])
+df_occupancy = df_occupancy[df_occupancy['duration_minutes'] >= 1]
+
+# df_occupancy = remove_overlaps_by_gate(df_occupancy)
+df_occupancy_week = add_runways_to_occupancy(df_occupancy, df_flight, runway_lines, df_apron)
+df_occupancy_week.to_csv(os.path.join(folder, "GateOccupancy27.csv"), index=False)
+
+# df_occupancy_week.to_csv(folder, index=False)
 
 
 

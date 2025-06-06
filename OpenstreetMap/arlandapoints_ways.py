@@ -21,7 +21,7 @@ def get_airport_nodes(aeroway_type):
         if element['type'] == 'node':
             nodes_dict[element['id']] = {'lat': element['lat'], 'lon': element['lon']}
 
-    elements = []  # Ahora sí está correctamente definida
+    elements = []  
     for element in data['elements']:
         if element['type'] == 'way':
             way_id = element['id']
@@ -39,15 +39,14 @@ def get_airport_nodes(aeroway_type):
 
     return elements
 
-# Obtener nodos
+# Nodes for different aeroway types
 runway_nodes = get_airport_nodes("runway")
 taxiway_nodes = get_airport_nodes("taxiway")
 apron_nodes = get_airport_nodes("apron")
 
-# Crear DataFrame
 df = pd.DataFrame(runway_nodes + taxiway_nodes + apron_nodes)
 
-# Guardar en CSV
+# Save
 df.to_csv('arlanda_nodes_ways.csv', index=False)
 
 print(f"Saved {len(df)} nodes to arlanda_airport_nodes.csv")

@@ -8,9 +8,9 @@ x_pos = [1, 2, 3]  # Custom X positions for H1, H2, H3
 
 groups = ['H1', 'H2', 'H3']
 means = [293, 465, 125]           # Mean taxi time during peak period
-mins_peak = [224, 350, 107]       # Minimum taxi time during peak
+mins_peak = [254, 350, 107]       # Minimum taxi time during peak
 maxs_peak = [441, 673, 161]       # Maximum taxi time during peak
-mins_offpeak = [190, 307, 80]     # Minimum taxi time during off-peak
+mins_offpeak = [224, 307, 80]     # Minimum taxi time during off-peak
 
 # === PLOT PEAK PERIOD AS ERRORBARS ===
 
